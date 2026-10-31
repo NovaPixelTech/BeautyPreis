@@ -1,0 +1,269 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "./node_modules/.prisma/client/"
+}
+
+// ---------------------------------------------------------------------------
+// Core enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Currency {
+  EUR
+  USD
+  GBP
+  KRW
+  JPY
+}
+
+enum PriceStatus {
+  VERIFIED
+  ESTIMATED
+  UNKNOWN
+  OUTDATED
+}
+
+enum MatchConfidence {
+  EXACT
+  HIGH
+  POSSIBLE
+  LOW
+  DIFFERENT
+}
+
+enum RetailerStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+  ERROR
+}
+
+// ---------------------------------------------------------------------------
+// Users
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String
+  name          String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Retailers
+// ---------------------------------------------------------------------------
+
+model Retailer {
+  id            String    @id @default(uuid())
+  name          String
+  slug          String    @unique
+  baseUrl       String
+  apiType       String?   // "official_api", "affiliate_feed", "third_party", "scraping"
+  status        RetailerStatus  @default(ACTIVE)
+  currency      Currency  @default(EUR)
+  country       String    // Target country for pricing
+  timezone      String?
+  rateLimit     Int?      // requests per minute
+  lastChecked   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  retailerProducts RetailerProduct[]
+}
+
+// ---------------------------------------------------------------------------
+// Brands
+// ---------------------------------------------------------------------------
+
+model Brand {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  slug        String
+  country     String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
+  retailerProducts RetailerProduct[]
+}
+
+// ---------------------------------------------------------------------------
+// Product Categories
+// ---------------------------------------------------------------------------
+
+model ProductCategory {
+  id          String    @id @default(uuid())
+  name        String    // e.g., "Face Cleansers", "Toners", "Serums"
+  slug        String
+  parentId    String?   // Self-referencing for hierarchical categories
+  language    String    @default("de")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
+}
+
+// ---------------------------------------------------------------------------
+// Products (canonical product catalog)
+// ---------------------------------------------------------------------------
+
+model Product {
+  id            String    @id @default(uuid())
+  brandId       String?   // FK to Brand
+  name          String
+  slug          String
+  modelNumber   String?   // Product model/version
+  size          String?   // e.g., "30ml", "50ml", "100ml"
+  color         String?   // e.g., "White", "Black"
+  gender        String?   // "male", "female", "unisex"
+  categoryId    String?   // Optional category
+  ean           String?   // EAN/GTIN barcode
+  description   String?
+  images        String[]  // URLs
+  matchConfidence MatchConfidence  @default(LOW)
+  lastMatched   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  retailerProducts RetailerProduct[]
+}
+
+// ---------------------------------------------------------------------------
+// Retailer Products (a product listing from a specific retailer)
+// ---------------------------------------------------------------------------
+
+model RetailerProduct {
+  id            String    @id @default(uuid())
+  productId     String?   // Canonical product (matched with confidence)
+  product       Product?  // relation
+  retailerId    String    // FK to Retailer
+  retailer      Retailer? // relation
+  productName   String
+  brand         String?
+  size          String?
+  price         Decimal
+  currency      Currency  @default(EUR)
+  ean           String?   // EAN/GTIN from retailer
+  url           String    // Direct product URL
+  imageUrl      String?
+  availability  String?   // "in_stock", "out_of_stock", "limited"
+  lastChecked   DateTime  @default(now())
+  matchConfidence MatchConfidence  @default(LOW)
+  priceStatus   PriceStatus  @default(ESTIMATED)
+  notes         String?   // e.g., "Size may vary", "Limited stock"
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Price Observations (historical price records - never overwrite)
+// ---------------------------------------------------------------------------
+
+model PriceObservation {
+  id            String    @id @default(uuid())
+  retailerProductId String // Which retailer product this observation is for
+  price         Decimal
+  currency      Currency  @default(EUR)
+  totalPurchaseCost Decimal? // Product price + shipping at time of observation
+  shippingCost  Decimal?  // Shipping cost at time of observation
+  priceStatus   PriceStatus
+  sourceVerification String?   // How the price was obtained
+  observedAt    DateTime  @default(now())
+  notes         String?   // e.g., "Shipping verified", "Import charges included"
+}
+
+// ---------------------------------------------------------------------------
+// Shipping Information
+// ---------------------------------------------------------------------------
+
+model ShippingInfo {
+  id                String    @id @default(uuid())
+  retailerProductId String   // Which retailer product this shipping info is for
+  shippingCost      Decimal
+  currency          Currency  @default(EUR)
+  estimatedDelivery String?   // Days as string, e.g., "3-5"
+  stockAvailable    Boolean
+  source            String?   // e.g., "checkout", "api", "estimated"
+  verificationStatus String?   // "verified", "estimated", "unknown"
+  lastVerified      DateTime?
+  notes             String?   // e.g., "EU domestic", "International with duties"
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Product Matching Records
+// ---------------------------------------------------------------------------
+
+model ProductMatch {
+  id                String    @id @default(uuid())
+  productId         String    // The canonical product
+  sourceRetailerProductId String // The retailer product that was matched
+  matchConfidence   MatchConfidence
+  matchFactors      Json?     // Factors that contributed to the match
+  matchedAt         DateTime  @default(now())
+  notes             String?   // e.g., "Matched by EAN", "Matched by brand+size+name"
+}
+
+// ---------------------------------------------------------------------------
+// Price Alerts
+// ---------------------------------------------------------------------------
+
+model PriceAlert {
+  id                String    @id @default(uuid())
+  userId            String    //FK to User
+  productId         String    //FK to Product (canonical)
+  retailerProductId String?  //FK to RetailerProduct (optional, for specific retailer alert)
+  retailerId        String?  //FK to Retailer (optional)
+  targetPrice       Decimal
+  targetPriceTotal  Decimal? // Total purchase cost target
+  currency          Currency  @default(EUR)
+  isActive          Boolean   @default(true)
+  triggered         Boolean   @default(false)
+  triggeredAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@ index([userId, isActive], name: "user_active_alerts_idx")
+  @@ index([productId, isActive], name: "product_active_alerts_idx")
+}
+
+// ---------------------------------------------------------------------------
+// Search History
+// ---------------------------------------------------------------------------
+
+model SearchHistory {
+  id            String    @id @default(uuid())
+  userId        String?   //FK to User (nullable for anonymous searches)
+  query         String
+  resultCount   Int?
+  executedAt    DateTime  @default(now())
+
+  @@ index([executedAt], name: "search_history_executed_at_idx")
+}
+
+// ---------------------------------------------------------------------------
+// Integration Logs
+// ---------------------------------------------------------------------------
+
+model IntegrationLog {
+  id                String    @id @default(uuid())
+  retailerId        String
+  operation         String    // "search", "retrieve_product", "retrieve_price", etc.
+  status            String    // "success", "error", "rate_limited"
+  errorMessage      String?
+  recordsProcessed  Int?      // Number of records processed
+  recordsSuccessful Int?      // Number of records successfully retrieved
+  executionTimeMs   Int?
+  executedAt        DateTime  @default(now())
+
+  @@ index([retailerId, executedAt], name: "integration_log_retailer_executed_at_idx")
+  @@ index([executedAt], name: "integration_log_executed_at_idx")
+}
