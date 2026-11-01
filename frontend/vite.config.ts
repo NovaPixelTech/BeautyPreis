@@ -8,10 +8,4 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
   },
-  esbuild: {
-    jsx: true,
-    loader: {
-      '.js': 'jsx'
-    }
-  }
 })
