@@ -1363,7 +1363,10 @@ function ProductPage({ id, t, lang, retailers, onNavigate }) {
         setStatus('ready');
       })
       .catch(() => {
-        if (!cancelled) setStatus('error');
+        if (!cancelled) {
+          setData({ product: fallbackProduct, offers: [], count: 0 });
+          setStatus('ready');
+        }
       });
 
     return () => {
