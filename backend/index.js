@@ -370,8 +370,10 @@ app.get('/api/products/:productId/offers', (req, res) => {
       });
     }
     
+    const [productWithImage] = attachProductImages([product]);
+
     res.json({
-      product,
+      product: productWithImage,
       offers,
       count: offers.length,
       matchSummary: {
