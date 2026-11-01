@@ -1040,7 +1040,11 @@ function ProductCard({ product, t }) {
   return (
     <article className="product-card">
       <a className={`product-media ph-${variant}`} href={href} aria-label={product.name}>
-        <ProductMonogram text={brand || product.name} />
+        {product.imageUrl ? (
+          <img className="product-photo" src={product.imageUrl} alt={product.name} loading="lazy" />
+        ) : (
+          <ProductMonogram text={brand || product.name} />
+        )}
         {category && <span className="media-tag">{category}</span>}
       </a>
       <div className="product-body">
@@ -1442,7 +1446,11 @@ function ProductPage({ id, t, lang, retailers, onNavigate }) {
         <div className="product-layout">
           <aside className="summary">
             <div className={`summary-media ph-${(hashIndex(product ? product.id : id, 6) || 0) + 1}`}>
-              <ProductMonogram text={brand || (product && product.name)} />
+              {product && product.imageUrl ? (
+                <img className="summary-photo" src={product.imageUrl} alt={product.name} />
+              ) : (
+                <ProductMonogram text={brand || (product && product.name)} />
+              )}
             </div>
             <div className="summary-body">
               <p className="summary-brand">{brand}</p>

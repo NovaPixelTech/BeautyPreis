@@ -17,6 +17,13 @@ const PORT = process.env.PORT || 3011;
 // Database setup
 const db = new sqlite3(path.join(__dirname, 'database.db'));
 db.pragma('foreign_keys = ON');
+
+// Migrate: older database files may predate the RetailerProducts.imageUrl column
+const retailerProductColumns = db.prepare("SELECT name FROM pragma_table_info('RetailerProducts')").all().map((c) => c.name);
+if (!retailerProductColumns.includes('imageUrl')) {
+  db.prepare('ALTER TABLE RetailerProducts ADD COLUMN imageUrl TEXT').run();
+}
+
 app.use(cors());
 app.use(express.json());
 
@@ -76,6 +83,16 @@ function initDatabase() {
 }
 
 initDatabase();
+
+// Attach retailer product images (from RetailerProducts.imageUrl) to product rows
+function attachProductImages(products) {
+  const imageMap = {};
+  const rows = db.prepare("SELECT productId, imageUrl FROM RetailerProducts WHERE imageUrl IS NOT NULL AND imageUrl != ''").all();
+  for (const r of rows) {
+    if (r.imageUrl && !imageMap[r.productId]) imageMap[r.productId] = r.imageUrl;
+  }
+  return (products || []).map((p) => (p && p.id && imageMap[p.id]) ? { ...p, imageUrl: imageMap[p.id] } : { ...p, imageUrl: null });
+}
 
 // Helper: run matching engine
 function matchProductToRetailerProducts(searchProductId) {
@@ -225,7 +242,8 @@ app.get('/api/products', async (req, res) => {
       }
     }
 
-    res.json({ products, count: products.length });
+    const productsWithImages = attachProductImages(products);
+    res.json({ products: productsWithImages, count: productsWithImages.length });
   } catch (err) {
     console.error('Products error:', err);
     res.status(500).json({ error: 'Failed to load products' });
@@ -239,7 +257,8 @@ app.get('/api/products/:id', (req, res) => {
                               LEFT JOIN ProductCategories pc ON p.categoryId = pc.id
                               WHERE p.id = ?`).get(req.params.id);
   if (!product) return res.status(404).json({ error: 'Product not found' });
-  res.json(product);
+  const [productWithImage] = attachProductImages([product]);
+  res.json(productWithImage);
 });
 
 // Search by product name, brand, EAN or model number
@@ -257,16 +276,19 @@ app.post('/api/search', async (req, res) => {
                                         OR p.ean LIKE ? OR p.modelNumber LIKE ?
                                      ORDER BY p.name ASC`).all(like, like, like, like, like);
 
+    let adapterResults = [];
     // If the local catalogue has no hits, fall back to live retailer discovery
     // via the scraping adapters so any product can be found and compared.
     if (productQuery.length === 0) {
-      const adapterResults = await searchProductsViaRetailerAdapters(term);
+      adapterResults = await searchProductsViaRetailerAdapters(term);
       if (adapterResults.length > 0) {
-        return res.json({ query: term, results: adapterResults, count: adapterResults.length, source: 'retailer-adapter' });
+        const adapterWithImages = attachProductImages(adapterResults);
+        return res.json({ query: term, results: adapterWithImages, count: adapterWithImages.length, source: 'retailer-adapter' });
       }
     }
 
-    res.json({ query: term, results: productQuery, count: productQuery.length });
+    const resultsWithImages = attachProductImages(adapterResults.length > 0 ? adapterResults : productQuery);
+    res.json({ query: term, results: resultsWithImages, count: resultsWithImages.length, ...(adapterResults.length > 0 ? { source: 'retailer-adapter' } : {}) });
   } catch (err) {
     console.error('Search error:', err);
     res.status(500).json({ error: 'Search failed' });
@@ -293,8 +315,8 @@ async function searchProductsViaRetailerAdapters(term) {
         db.prepare(`INSERT OR IGNORE INTO Products (id, brandId, name, slug, modelNumber, size, color, gender, categoryId, ean, matchConfidence) VALUES (?, (SELECT id FROM Brands WHERE slug = ?), ?, ?, ?, ?, ?, ?, NULL, ?, 'LOW')`)
           .run(productId, brandSlug, fp.name || term, slug, fp.size || null, fp.ean || null);
         const retailerProductId = 'rp-adapt-' + slug;
-        db.prepare(`INSERT OR IGNORE INTO RetailerProducts (id, productId, retailerId, productName, brand, size, price, currency, ean, url, availability, priceStatus, notes) VALUES (?, ?, ?, ?, ?, ?, ?, 'EUR', ?, ?, ?, 'ESTIMATED', 'adapter discovery')`)
-          .run(retailerProductId, productId, candidate.retailerId, fp.productName || fp.name || term, fp.brand || '', fp.size || '', fp.price || 0, fp.ean || '', fp.url || '');
+        db.prepare(`INSERT OR IGNORE INTO RetailerProducts (id, productId, retailerId, productName, brand, size, price, currency, ean, url, availability, priceStatus, notes, imageUrl) VALUES (?, ?, ?, ?, ?, ?, ?, 'EUR', ?, ?, ?, 'ESTIMATED', 'adapter discovery', ?)`)
+          .run(retailerProductId, productId, candidate.retailerId, fp.productName || fp.name || term, fp.brand || '', fp.size || '', fp.price || 0, fp.ean || '', fp.url || '', '', fp.imageUrl || '');
         const shippingRow = db.prepare("SELECT * FROM ShippingInfos WHERE retailerProductId = ?").all(retailerProductId);
         const shippingPrice = (shippingRow && shippingRow[0] && shippingRow[0].price) ? shippingRow[0].price : 0;
         db.prepare("INSERT OR IGNORE INTO PriceObservations (id, retailerProductId, price, currency, totalPurchaseCost, shippingCost, priceStatus, sourceVerification, notes) VALUES (?, ?, ?, 'EUR', ?, ?, 'ESTIMATED', 'adapter discovery', 'live adapter discovery')")
