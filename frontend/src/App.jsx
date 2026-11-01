@@ -509,7 +509,7 @@ export default function App() {
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '4px' }}>
-            <span style={{ fontSize: '15px', fontWeight: '700', color: '#111827' }}>{rp.productName}</div>
+            <span style={{ fontSize: '15px', fontWeight: '700', color: '#111827' }}>{rp.productName}</span>
             {isBest && <span style={{ fontSize: '10px', fontWeight: '700', color: '#10b981', backgroundColor: '#ecfdf5', padding: '2px 6px', borderRadius: '4px' }}>BESTE WAHL</span>}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
