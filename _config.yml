@@ -1,0 +1,35 @@
+# GitHub Pages / Jekyll configuration
+# Disable Jekyll processing for this React/Vite app
+
+title: BeautyPreis
+description: Beauty & Skincare Price Comparison Platform for Germany
+baseurl: "/BeautyPreis"
+url: "https://novapixeltech.github.io"
+
+exclude:
+  - node_modules/
+  - backend/node_modules/
+  - frontend/node_modules/
+  - package.json
+  - package-lock.json
+  - backend/package.json
+  - backend/package-lock.json
+  - frontend/package.json
+  - frontend/package-lock.json
+  - .git/
+  - .github/
+  - .gitignore
+  - README.md
+  - backend/README.md
+  - backend/index.js
+  - backend/database.db
+  - backend/Database.sql
+  - backend/demo.js
+  - backend/generate.js
+  - backend/test*.js
+  - backend/seed*.js
+  - backend/.env
+  - backend/prisma/
+  - backend/retailers/
+
+show_excerpts: false
