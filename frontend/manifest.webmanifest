@@ -1,0 +1,17 @@
+{
+  "name": "BeautyPreis",
+  "short_name": "BeautyPreis",
+  "description": "Beauty & skincare price comparison for Germany",
+  "start_url": "/BeautyPreis/",
+  "display": "standalone",
+  "background_color": "#faf7f5",
+  "theme_color": "#faf7f5",
+  "icons": [
+    {
+      "src": "/BeautyPreis/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

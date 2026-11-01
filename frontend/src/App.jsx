@@ -6,7 +6,7 @@ import { FALLBACK_CATALOGUE } from './fallbackCatalogue';
    ------------------------------------------------------------------ */
 
 // Point this at a deployed API with VITE_API_BASE_URL at build time.
-const API_BASE = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:3011';
+const API_BASE = import.meta.env?.VITE_API_BASE_URL || (typeof window !== 'undefined' ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:3011' : window.location.origin) : 'http://localhost:3011');
 
 /* ------------------------------------------------------------------
    Translations (English is the default, German is selectable)
