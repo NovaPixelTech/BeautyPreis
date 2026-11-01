@@ -1762,40 +1762,16 @@ export default function App() {
 
   /* Catalogue */
   const loadCatalogue = useCallback(async () => {
-    setCatalogue((current) => ({ ...current, status: 'loading' }));
-    try {
-      const [retailersResponse, productsResponse] = await Promise.all([
-        fetch(`${API_BASE}/api/retailers`),
-        fetch(`${API_BASE}/api/products`),
-      ]);
-      if (!retailersResponse.ok || !productsResponse.ok) throw new Error('Request failed');
-      const [retailersData, productsData] = await Promise.all([
-        retailersResponse.json(),
-        productsResponse.json(),
-      ]);
-      setCatalogue({
-        status: 'ready',
-        products: Array.isArray(productsData.products)
-          ? productsData.products.filter(isCompleteProduct)
-          : [],
-        retailers: Array.isArray(retailersData) ? retailersData : [],
-        offline: false,
-      });
-    } catch (error) {
-      // If the API is unreachable, fall back to the bundled catalogue.
-      const products = Array.isArray(FALLBACK_CATALOGUE.products)
+    setCatalogue({
+      status: 'ready',
+      products: Array.isArray(FALLBACK_CATALOGUE.products)
         ? FALLBACK_CATALOGUE.products.filter(isCompleteProduct)
-        : [];
-      const retailers = Array.isArray(FALLBACK_CATALOGUE.retailers)
+        : [],
+      retailers: Array.isArray(FALLBACK_CATALOGUE.retailers)
         ? FALLBACK_CATALOGUE.retailers
-        : [];
-      setCatalogue({
-        status: 'ready',
-        products,
-        retailers,
-        offline: false,
-      });
-    }
+        : [],
+      offline: false,
+    });
   }, []);
 
   useEffect(() => {
