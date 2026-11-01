@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button, Input, Card, List, ListItem, Avatar } from './components/ui';
 
-// Backend API URL
-const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:3011';
+// Backend API URL (set VITE_API_BASE_URL at build time, e.g. for a deployed API)
+const API_BASE = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:3011';
 
 // German currency formatter
 const formatPrice = (price) => {
@@ -94,6 +94,7 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [apiOffline, setApiOffline] = useState(false);
 
   // Fetch retailers and categories on mount
   useEffect(() => {
@@ -117,23 +118,26 @@ export default function App() {
           });
           setCategories(Array.from(catSet));
         }
+        setApiOffline(false);
       } catch (err) {
         console.error('Failed to load initial data:', err);
+        setApiOffline(true);
       }
     };
     loadData();
   }, []);
 
-  const handleSearch = useCallback(async (e) => {
+  const handleSearch = useCallback(async (e, overrideQuery) => {
     if (e) e.preventDefault();
-    if (!searchQuery.trim()) return;
+    const query = typeof overrideQuery === 'string' ? overrideQuery : searchQuery;
+    if (!query.trim()) return;
     setLoading(true);
     setError(null);
     try {
       const res = await fetch(`${API_BASE}/api/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: searchQuery }),
+        body: JSON.stringify({ query }),
       });
       if (!res.ok) throw new Error('Suche fehlgeschlagen');
       const data = await res.json();
@@ -293,10 +297,18 @@ export default function App() {
           )}
         </Card>
 
+        {/* Backend status notice */}
+        {apiOffline && (
+          <div style={{ maxWidth: '560px', margin: '20px auto 0', fontSize: '14px', color: '#92400e', backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '12px 16px', lineHeight: '1.5' }}>
+            <strong>Hinweis:</strong> Die Preisvergleichs-API ist derzeit nicht erreichbar. Bitte starten Sie das Backend
+            (<code>npm start</code> im Ordner <code>backend</code>) oder legen Sie <code>VITE_API_BASE_URL</code> beim Build fest.
+          </div>
+        )}
+
         {/* Quick Search Chips */}
         <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '10px', marginTop: '32px' }}>
           {['ANUA', 'COSRX', 'Hada Labo', 'SOME BY MI', 'INNISFREE', 'Shiseido'].map((brand) => (
-            <Button key={brand} variant="outline" onClick={() => { setSearchQuery(brand); handleSearch(); }} style={{ padding: '10px 20px', fontSize: '14px' }}>
+            <Button key={brand} variant="outline" onClick={() => { setSearchQuery(brand); handleSearch(null, brand); }} style={{ padding: '10px 20px', fontSize: '14px' }}>
               {brand}
             </Button>
           ))}
@@ -463,7 +475,7 @@ export default function App() {
 
           {/* Best Offer Highlight */}
           {bestOffer && (
-            <Card style={{ marginTop: '24px', backgroundColor: '#ecfdf5', border: '1px solid #10b981' }} style={{ padding: '20px' }}>
+            <Card style={{ marginTop: '24px', backgroundColor: '#ecfdf5', border: '1px solid #10b981', padding: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
                 <div>
                   <div style={{ fontSize: '12px', fontWeight: '700', color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Beste Wahl</div>
