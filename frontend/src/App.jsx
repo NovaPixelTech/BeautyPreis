@@ -849,6 +849,8 @@ function Hero({ t, query, onQueryChange, onSearch, stats }) {
 
   return (
     <section className="hero" id="top">
+      <span className="hero-orb hero-orb--one" aria-hidden="true" />
+      <span className="hero-orb hero-orb--two" aria-hidden="true" />
       <div className="container hero-grid">
         <div>
           <span className="eyebrow">

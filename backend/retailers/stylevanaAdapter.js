@@ -141,19 +141,19 @@ class StylevanaAdapter extends ScrapingAdapter {
     // HTML fallback
     const name = $('h1.product-title, h1.product-name, h1').first().text().trim() ||
                  $('.product-title').first().text().trim() ||
-                 document.title || '';
-     
+                 $('title').text().trim();
+
     const priceText = $('.price, .product-price, .sale-price, [class*="price"]').first().text().trim();
     const price = this._parsePrice(priceText);
-     
+
     const brand = $('.brand, .vendor, [class*="brand"]').first().text().trim() || '';
-    const imageUrl = $('img.product-image, img.main-image, img[itemprop="image"]').attr('src') || 
+    const imageUrl = $('img.product-image, img.main-image, img[itemprop="image"]').attr('src') ||
                      $('img').first().attr('src') || '';
-     
+
     const canonicalUrl = $('link[rel="canonical"]').attr('href') || '';
-     
+
     if (!name) return null;
-     
+
     return {
       id: canonicalUrl || '',
       name: name,
@@ -169,14 +169,18 @@ class StylevanaAdapter extends ScrapingAdapter {
   }
 
   /**
-   * Parse price from text like "€19.99" or "$19.99" or "19,99 €"
+   * Parse price from text like "€19.99" or "19,99 €"
    * @param {string} text - Price text
    * @returns {number} Parsed price
    * @private
    */
   _parsePrice(text) {
     if (!text) return 0;
-    const match = text.match(/[\d]+[.,]\d{2}/);
+    const matches = String(text).match(/€\s*([\d]+[.,]\d{2})/g) || [];
+    if (matches.length > 0) {
+      return parseFloat(matches[0].replace('€', '').replace(',', '.')) || 0;
+    }
+    const match = String(text).match(/[\d]+[.,]\d{2}/);
     if (match) {
       return parseFloat(match[0].replace(',', '.'));
     }

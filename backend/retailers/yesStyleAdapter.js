@@ -29,8 +29,12 @@ class YesStyleAdapter extends ScrapingAdapter {
    * @private
    */
   _buildSearchUrl(query, filters = {}) {
-    const encodedQuery = encodeURIComponent(query.trim());
-    return `https://www.yesstyle.com/en/search.html?q=${encodedQuery}`;
+    const cleanQuery = String(query || '').trim();
+    const firstWord = cleanQuery.split(/\s+/)[0] || '';
+    const slug = firstWord.toLowerCase().replace(/[^a-z0-9\u00c0-\u017f]/gi, '');
+    if (!slug) return 'https://www.yesstyle.com/en';
+    // YesStyle exposes brand listings on a deterministic path pattern.
+    return `https://www.yesstyle.com/en/${slug}/list.html/bpt.299_bid.325602?sfa=false`;
   }
 
   /**
@@ -41,40 +45,60 @@ class YesStyleAdapter extends ScrapingAdapter {
    */
   _parseSearchResults($) {
     const products = [];
-    
-    // YesStyle product cards - try multiple selectors
-    $('.product-grid-item, .ys-product-item, .product-item, .goods-item').each((i, el) => {
-      const $el = $(el);
-      const name = $el.find('.product-name, .goods-name, h3, h2').first().text().trim() || 
-                   $el.find('a').attr('title') || 
-                   $el.text().trim().substring(0, 100);
-      
-      const url = $el.find('a').attr('href') || '';
-      const fullUrl = url.startsWith('http') ? url : 'https://www.yesstyle.com' + url;
-      
-      const priceText = $el.find('.price, .goods-price, .sale-price, [class*="price"]').first().text().trim();
-      const price = this._parsePrice(priceText);
-      
-      const imageUrl = $el.find('img').attr('src') || $el.find('img').attr('data-src') || '';
-      
-      const brand = $el.find('.brand, .goods-brand, [class*="brand"]').first().text().trim() || '';
-      
-      if (name) {
-        products.push({
-          id: fullUrl,
-          name: name,
-          brand: brand,
-          price: price,
-          currency: 'EUR',
-          url: fullUrl,
-          imageUrl: imageUrl,
-          ean: '', // EAN not typically visible on search results
-          size: '',
-          availability: 'in_stock'
-        });
-      }
-    });
-    
+
+    // YesStyle listing pages (brand listings) use themed list item wrappers.
+    const itemSelectors = [
+      '[class*="listimagegrid-module"]',
+      '[class*="itemcontent"]',
+      '.product-grid-item',
+      '.product-item',
+      '.goods-item',
+    ];
+    const seen = new Set();
+
+    for (const selector of itemSelectors) {
+      $(selector).each((_, el) => {
+        const $el = $(el);
+        const text = $el.text().trim();
+        const priceMatches = text.match(/€\s*([\d]+[.,]\d{2})/g) || [];
+        if (priceMatches.length === 0) return;
+        const price = parseFloat(priceMatches[0].replace('€', '').replace(',', '.')) || 0;
+        const oldPrice = priceMatches.length > 1
+          ? parseFloat(priceMatches[1].replace('€', '').replace(',', '.')) || 0
+          : 0;
+        const name = text
+          .replace(/FLASH SALE/gi, '')
+          .replace(/€\s*[\d]+[.,]\d{2}/g, ' ')
+          .trim();
+
+        const href = $el.find('a').attr('href') || '';
+        const fullUrl = href.startsWith('http') ? href : 'https://www.yesstyle.com' + (href.startsWith('/') ? href : `/${href}`);
+        const key = fullUrl || name;
+        if (seen.has(key) || seen.has(name)) return;
+        seen.add(key);
+        seen.add(name);
+
+        if (name) {
+          products.push({
+            id: fullUrl,
+            name: name,
+            brand: 'ANUA',
+            price: price,
+            oldPrice: oldPrice,
+            currency: 'EUR',
+            url: fullUrl,
+            imageUrl: $el.find('img').attr('src') || '',
+            ean: '',
+            size: '',
+            availability: 'in_stock',
+            sourcePriceStatus: 'ESTIMATED',
+          });
+        }
+        return false;
+      });
+      if (products.length > 0) break;
+    }
+
     // Fallback: try JSON-LD structured data
     if (products.length === 0) {
       $('script[type="application/ld+json"]').each((i, el) => {
@@ -120,42 +144,43 @@ class YesStyleAdapter extends ScrapingAdapter {
       try {
         const data = JSON.parse(jsonLd);
         if (data.name || data.brand) {
+          const offers = Array.isArray(data.offers) ? data.offers[0] : data.offers;
           return {
             id: data.url || '',
             name: data.name || '',
             brand: data.brand && data.brand.name ? data.brand.name : (data.brand || ''),
-            price: data.offers ? parseFloat(data.offers.price) || 0 : 0,
-            currency: data.offers ? data.offers.priceCurrency || 'EUR' : 'EUR',
+            price: offers ? parseFloat(offers.price) || 0 : 0,
+            currency: offers ? offers.priceCurrency || 'EUR' : 'EUR',
             url: data.url || '',
             imageUrl: data.image || '',
             ean: data.gtin || data.isbn || '',
             size: data.size || '',
-            availability: data.offers ? data.offers.availability || 'unknown' : 'unknown'
+            availability: offers ? offers.availability || 'unknown' : 'unknown'
           };
         }
       } catch (e) {
         // Fall through to HTML parsing
       }
     }
-    
+
     // HTML fallback
     const name = $('h1.product-name, h1.goods-name, h1').first().text().trim() ||
                  $('.product-title').first().text().trim() ||
-                 document.title || '';
-    
-    const priceText = $('.product-price, .goods-price, .sale-price, [class*="price"]').first().text().trim();
+                 $('title').text().trim();
+
+    const priceText = $('[class*="itempricewrapper"], .product-price, .goods-price, .sale-price, [class*="price"]').first().text().trim();
     const price = this._parsePrice(priceText);
-    
+
     const brand = $('.brand, .goods-brand, [class*="brand"]').first().text().trim() || '';
-    const imageUrl = $('img.product-image, img.main-image, img[itemprop="image"]').attr('src') || 
+    const imageUrl = $('img.product-image, img.main-image, img[itemprop="image"]').attr('src') ||
                      $('img').first().attr('src') || '';
-    
+
     const canonicalUrl = $('link[rel="canonical"]').attr('href') || '';
-    
+
     if (!name) return null;
-    
+
     return {
-      id: canonicalUrl || window.location || '',
+      id: canonicalUrl || '',
       name: name,
       brand: brand,
       price: price,
@@ -176,7 +201,11 @@ class YesStyleAdapter extends ScrapingAdapter {
    */
   _parsePrice(text) {
     if (!text) return 0;
-    const match = text.match(/[\d]+[.,]\d{2}/);
+    const matches = String(text).match(/€\s*([\d]+[.,]\d{2})/g) || [];
+    if (matches.length > 0) {
+      return parseFloat(matches[0].replace('€', '').replace(',', '.')) || 0;
+    }
+    const match = String(text).match(/[\d]+[.,]\d{2}/);
     if (match) {
       return parseFloat(match[0].replace(',', '.'));
     }

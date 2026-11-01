@@ -311,7 +311,8 @@ exports.createAdapter = function(config, db) {
   // Retailer-specific adapter overrides (factory functions)
   const retailerAdapterOverrides = {
     yesstyle: require('./retailers/yesStyleAdapter'),
-    stylevana: require('./retailers/stylevanaAdapter')
+    stylevana: require('./retailers/stylevanaAdapter'),
+    flaconi: require('./retailers/flaconiAdapter')
   };
   
   const AdapterClass = adapterMap[config.apiType] || BaseRetailerAdapter;

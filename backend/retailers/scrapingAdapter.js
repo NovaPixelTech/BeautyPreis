@@ -1,4 +1,4 @@
-const BaseRetailerAdapter = require('../baseAdapter');
+const BaseRetailerAdapter = require('../retailerAdapter');
 const cheerio = require('cheerio');
 
 /**
