@@ -33,8 +33,8 @@ function initDatabase() {
 
   // Insert initial retailers
   const retailers = [
-    ['yesstyle', 'YesStyle', 'yesstyle', 'https://www.yesstyle.com', 'third_party', 'ACTIVE', 'Germany'],
-    ['stylevana', 'Stylevana', 'stylevana', 'https://www.stylevana.com', 'third_party', 'ACTIVE', 'Germany'],
+    ['yesstyle', 'YesStyle', 'yesstyle', 'https://www.yesstyle.com', 'scraping', 'ACTIVE', 'Germany'],
+    ['stylevana', 'Stylevana', 'stylevana', 'https://www.stylevana.com', 'scraping', 'ACTIVE', 'Germany'],
     ['douglas', 'Douglas Germany', 'douglas-de', 'https://www.douglas.de', 'official_api', 'ACTIVE', 'Germany'],
     ['flaconi', 'Flaconi', 'flaconi', 'https://www.flaconi.de', 'official_api', 'ACTIVE', 'Germany'],
     ['notino', 'Notino Germany', 'notino-de', 'https://www.notino.de', 'official_api', 'ACTIVE', 'Germany'],

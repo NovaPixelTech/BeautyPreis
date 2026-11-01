@@ -177,19 +177,18 @@ exports.getRetailerConfigurations = function() {
       name: 'YesStyle',
       slug: 'yesstyle',
       baseUrl: 'https://www.yesstyle.com',
-      apiType: exports.APIType.THIRD_PARTY,
+      apiType: exports.APIType.SCRAPING,
       country: 'Germany',
-      // TODO: Add credentials if official API becomes available
-      // credentials: { apiKey: '...', secret: '...' }
+      rateLimit: 30
     },
     {
       id: 'stylevana',
       name: 'Stylevana',
       slug: 'stylevana',
       baseUrl: 'https://www.stylevana.com',
-      apiType: exports.APIType.THIRD_PARTY,
+      apiType: exports.APIType.SCRAPING,
       country: 'Germany',
-      // TODO: Add credentials if official API becomes available
+      rateLimit: 30
     },
     {
       id: 'douglas',
@@ -309,7 +308,28 @@ exports.createAdapter = function(config, db) {
     [exports.APIType.SCRAPING]: require('./retailers/scrapingAdapter')
   };
   
+  // Retailer-specific adapter overrides (factory functions)
+  const retailerAdapterOverrides = {
+    yesstyle: require('./retailers/yesStyleAdapter'),
+    stylevana: require('./retailers/stylevanaAdapter')
+  };
+  
   const AdapterClass = adapterMap[config.apiType] || BaseRetailerAdapter;
+  
+  // Check for retailer-specific adapter override
+  const retailerOverride = retailerAdapterOverrides[config.id];
+  if (retailerOverride) {
+    return retailerOverride({
+      retailerId: config.id,
+      retailerName: config.name,
+      baseUrl: config.baseUrl,
+      apiType: config.apiType,
+      credentials: config.credentials,
+      rateLimit: config.rateLimit,
+      db: db ? db.getRepository && db.getRepository('RetailerProducts') : null
+    });
+  }
+  
   return new AdapterClass({
     retailerId: config.id,
     retailerName: config.name,
