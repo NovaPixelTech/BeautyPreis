@@ -10,7 +10,8 @@ export const FALLBACK_CATALOGUE = {
       "size": "30ml",
       "ean": "8806094821231",
       "brandName": "ANUA",
-      "category_slug": "k-beauty"
+      "category_slug": "k-beauty",
+      "imageUrl": "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=600&q=80"
     },
     {
       "id": "prod-cosrx-snail",
@@ -19,7 +20,8 @@ export const FALLBACK_CATALOGUE = {
       "size": "100ml",
       "ean": "8809598622121",
       "brandName": "COSRX",
-      "category_slug": "k-beauty"
+      "category_slug": "k-beauty",
+      "imageUrl": "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=600&q=80"
     },
     {
       "id": "prod-hada-labo-lotion",
@@ -28,7 +30,8 @@ export const FALLBACK_CATALOGUE = {
       "size": "170ml",
       "ean": "4901301342981",
       "brandName": "Hada Labo",
-      "category_slug": "j-beauty"
+      "category_slug": "j-beauty",
+      "imageUrl": "https://images.unsplash.com/photo-1515377905703-c4788e51af15?w=600&q=80"
     },
     {
       "id": "prod-innisfree-green-tea",
@@ -37,7 +40,8 @@ export const FALLBACK_CATALOGUE = {
       "size": "80ml",
       "ean": "8806202131231",
       "brandName": "INNISFREE",
-      "category_slug": "k-beauty"
+      "category_slug": "k-beauty",
+      "imageUrl": "https://images.unsplash.com/photo-1601049541289-9a82eb3e4e7d?w=600&q=80"
     },
     {
       "id": "prod-somebymi-miracle",
@@ -46,7 +50,8 @@ export const FALLBACK_CATALOGUE = {
       "size": "50ml",
       "ean": "8809644730171",
       "brandName": "SOME BY MI",
-      "category_slug": "k-beauty"
+      "category_slug": "k-beauty",
+      "imageUrl": "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=600&q=80"
     },
     {
       "id": "prod-shiseido-ubl",
@@ -55,7 +60,8 @@ export const FALLBACK_CATALOGUE = {
       "size": "30ml",
       "ean": "4909978202511",
       "brandName": "Shiseido",
-      "category_slug": "j-beauty"
+      "category_slug": "j-beauty",
+      "imageUrl": "https://images.unsplash.com/photo-1515377905703-c4788e51af15?w=600&q=80"
     }
   ],
   "retailers": [
