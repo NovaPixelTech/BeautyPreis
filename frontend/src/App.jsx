@@ -1793,7 +1793,7 @@ export default function App() {
         status: 'ready',
         products,
         retailers,
-        offline: true,
+        offline: false,
       });
     }
   }, []);
