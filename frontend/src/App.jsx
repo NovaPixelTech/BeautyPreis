@@ -472,7 +472,7 @@ const parseRoute = (hash) => {
 };
 
 const getInitialLang = () => {
-  if (typeof window === 'undefined') return 'en';
+  if (typeof window === 'undefined') return 'de';
   try {
     const fromQuery = new URLSearchParams(window.location.search).get('lang');
     if (fromQuery === 'de' || fromQuery === 'en') return fromQuery;
@@ -481,7 +481,7 @@ const getInitialLang = () => {
   } catch (error) {
     /* storage can be unavailable in private mode */
   }
-  return 'en';
+  return 'de';
 };
 
 const scrollToSection = (id) => {
