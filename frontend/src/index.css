@@ -342,6 +342,24 @@ ul {
   animation: brand-float 5s ease-in-out infinite;
 }
 
+.brand-rose {
+  display: block;
+  width: 19px;
+  height: 19px;
+  transform-origin: 50% 100%;
+  animation: rose-open 4s ease-in-out infinite;
+}
+
+@keyframes rose-open {
+  0%,
+  100% {
+    transform: scaleY(0.62);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
 @keyframes brand-float {
   0%,
   100% {
@@ -1865,7 +1883,8 @@ ul {
   }
 
   .brand-mark,
-  .hero-orb {
+  .hero-orb,
+  .brand-rose {
     animation: none !important;
   }
 }

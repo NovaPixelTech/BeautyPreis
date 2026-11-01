@@ -7,6 +7,10 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 require('dotenv').config();
 
+const yesStyleAdapter = require('./retailers/yesStyleAdapter');
+const stylevanaAdapter = require('./retailers/stylevanaAdapter');
+const flaconiAdapter = require('./retailers/flaconiAdapter');
+
 const app = express();
 const PORT = process.env.PORT || 3011;
 
@@ -197,7 +201,7 @@ app.get('/api/retailers/:slug', (req, res) => {
 });
 
 // Product routes
-app.get('/api/products', (req, res) => {
+app.get('/api/products', async (req, res) => {
   try {
     const { brand, category, q } = req.query;
     let sql = `SELECT p.*, b.name AS brandName, pc.slug AS category_slug, pc.name AS categoryName
@@ -211,6 +215,16 @@ app.get('/api/products', (req, res) => {
     if (q) { sql += " AND (p.name LIKE ? OR p.slug LIKE ? OR p.ean LIKE ?)"; params.push('%' + q + '%', '%' + q + '%', '%' + q + '%'); }
     sql += " ORDER BY p.name ASC";
     const products = db.prepare(sql).all(...params);
+
+    // If the local catalogue has no hits, fall back to live retailer discovery
+    // via the scraping adapters so users can compare any product they can think of.
+    if (q && products.length === 0) {
+      const adapterResults = await searchProductsViaRetailerAdapters(q);
+      if (adapterResults.length > 0) {
+        return res.json({ products: adapterResults, count: adapterResults.length });
+      }
+    }
+
     res.json({ products, count: products.length });
   } catch (err) {
     console.error('Products error:', err);
@@ -229,7 +243,7 @@ app.get('/api/products/:id', (req, res) => {
 });
 
 // Search by product name, brand, EAN or model number
-app.post('/api/search', (req, res) => {
+app.post('/api/search', async (req, res) => {
   try {
     const { query: searchQuery } = req.body;
     const term = typeof searchQuery === 'string' ? searchQuery.trim() : '';
@@ -242,12 +256,59 @@ app.post('/api/search', (req, res) => {
                                      WHERE p.name LIKE ? OR p.slug LIKE ? OR b.name LIKE ?
                                         OR p.ean LIKE ? OR p.modelNumber LIKE ?
                                      ORDER BY p.name ASC`).all(like, like, like, like, like);
+
+    // If the local catalogue has no hits, fall back to live retailer discovery
+    // via the scraping adapters so any product can be found and compared.
+    if (productQuery.length === 0) {
+      const adapterResults = await searchProductsViaRetailerAdapters(term);
+      if (adapterResults.length > 0) {
+        return res.json({ query: term, results: adapterResults, count: adapterResults.length, source: 'retailer-adapter' });
+      }
+    }
+
     res.json({ query: term, results: productQuery, count: productQuery.length });
   } catch (err) {
     console.error('Search error:', err);
     res.status(500).json({ error: 'Search failed' });
   }
 });
+
+// Live retailer discovery via scraping adapters - used when the local
+// catalogue has no match, so any searchable product can be found & compared.
+async function searchProductsViaRetailerAdapters(term) {
+  const candidates = [
+    { retailerId: 'yesstyle', adapter: yesStyleAdapter({ retailerId: 'yesstyle', retailerName: 'YesStyle', baseUrl: 'https://www.yesstyle.com', apiType: 'scraping' }) },
+    { retailerId: 'flaconi', adapter: flaconiAdapter({ retailerId: 'flaconi', retailerName: 'Flaconi', baseUrl: 'https://www.flaconi.de', apiType: 'scraping' }) },
+    { retailerId: 'stylevana', adapter: stylevanaAdapter({ retailerId: 'stylevana', retailerName: 'Stylevana', baseUrl: 'https://www.stylevana.com', apiType: 'scraping' }) },
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      const found = await candidate.adapter.searchProducts(term);
+      if (Array.isArray(found) && found.length > 0) {
+        const fp = found[0];
+        const slug = String(fp.name || term).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'product';
+        const productId = 'prod-adapt-' + slug;
+        const brandSlug = String(fp.brand || '').toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'unknown';
+        db.prepare(`INSERT OR IGNORE INTO Products (id, brandId, name, slug, modelNumber, size, color, gender, categoryId, ean, matchConfidence) VALUES (?, (SELECT id FROM Brands WHERE slug = ?), ?, ?, ?, ?, ?, ?, NULL, ?, 'LOW')`)
+          .run(productId, brandSlug, fp.name || term, slug, fp.size || null, fp.ean || null);
+        const retailerProductId = 'rp-adapt-' + slug;
+        db.prepare(`INSERT OR IGNORE INTO RetailerProducts (id, productId, retailerId, productName, brand, size, price, currency, ean, url, availability, priceStatus, notes) VALUES (?, ?, ?, ?, ?, ?, ?, 'EUR', ?, ?, ?, 'ESTIMATED', 'adapter discovery')`)
+          .run(retailerProductId, productId, candidate.retailerId, fp.productName || fp.name || term, fp.brand || '', fp.size || '', fp.price || 0, fp.ean || '', fp.url || '');
+        const shippingRow = db.prepare("SELECT * FROM ShippingInfos WHERE retailerProductId = ?").all(retailerProductId);
+        const shippingPrice = (shippingRow && shippingRow[0] && shippingRow[0].price) ? shippingRow[0].price : 0;
+        db.prepare("INSERT OR IGNORE INTO PriceObservations (id, retailerProductId, price, currency, totalPurchaseCost, shippingCost, priceStatus, sourceVerification, notes) VALUES (?, ?, ?, 'EUR', ?, ?, 'ESTIMATED', 'adapter discovery', 'live adapter discovery')")
+          .run('po-adapt-' + slug, retailerProductId, fp.price || 0, (fp.price || 0) + shippingPrice, shippingPrice, 'live adapter discovery');
+        const product = db.prepare(`SELECT p.*, b.name AS brandName, pc.slug AS category_slug, pc.name AS categoryName
+                                   FROM Products p LEFT JOIN Brands b ON p.brandId = b.id LEFT JOIN ProductCategories pc ON p.categoryId = pc.id WHERE p.id = ?`).get(productId);
+        return [product];
+      }
+    } catch (err) {
+      console.warn('Retailer adapter search failed for ' + candidate.retailerId + ':', err.message);
+    }
+  }
+  return [];
+}
 
 // Product matching - find retailer offers with confidence scoring
 app.get('/api/products/:productId/offers', (req, res) => {

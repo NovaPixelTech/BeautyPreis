@@ -630,7 +630,13 @@ function BrandMark({ t }) {
   return (
     <a className="brand" href="#/" aria-label="BeautyPreis">
       <span className="brand-mark" aria-hidden="true">
-        Bp
+        <svg className="brand-rose" viewBox="0 0 40 40" width="19" height="19" focusable="false">
+          <g>
+            <path d="M20 32 C20 22 20 14 20 8" fill="none" stroke="#a63d5c" strokeWidth="1.7" strokeLinecap="round" />
+            <circle cx="20" cy="9" r="6.2" fill="#ffffff" />
+            <circle cx="20" cy="9" r="2.4" fill="#a63d5c" />
+          </g>
+        </svg>
       </span>
       <span className="brand-name">
         BeautyPreis
