@@ -1762,16 +1762,39 @@ export default function App() {
 
   /* Catalogue */
   const loadCatalogue = useCallback(async () => {
-    setCatalogue({
-      status: 'ready',
-      products: Array.isArray(FALLBACK_CATALOGUE.products)
+    setCatalogue((current) => ({ ...current, status: 'loading' }));
+    try {
+      const [retailersResponse, productsResponse] = await Promise.all([
+        fetch(`${API_BASE}/api/retailers`),
+        fetch(`${API_BASE}/api/products`),
+      ]);
+      if (!retailersResponse.ok || !productsResponse.ok) throw new Error('Request failed');
+      const [retailersData, productsData] = await Promise.all([
+        retailersResponse.json(),
+        productsResponse.json(),
+      ]);
+      setCatalogue({
+        status: 'ready',
+        products: Array.isArray(productsData.products)
+          ? productsData.products.filter(isCompleteProduct)
+          : [],
+        retailers: Array.isArray(retailersData) ? retailersData : [],
+        offline: false,
+      });
+    } catch (error) {
+      const products = Array.isArray(FALLBACK_CATALOGUE.products)
         ? FALLBACK_CATALOGUE.products.filter(isCompleteProduct)
-        : [],
-      retailers: Array.isArray(FALLBACK_CATALOGUE.retailers)
+        : [];
+      const retailers = Array.isArray(FALLBACK_CATALOGUE.retailers)
         ? FALLBACK_CATALOGUE.retailers
-        : [],
-      offline: false,
-    });
+        : [];
+      setCatalogue({
+        status: 'ready',
+        products,
+        retailers,
+        offline: true,
+      });
+    }
   }, []);
 
   useEffect(() => {
