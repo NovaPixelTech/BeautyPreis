@@ -42,24 +42,28 @@ class ErrorBoundary extends React.Component<
         >
           <div>
             <h1 style={{ fontSize: '20px', margin: '0 0 8px 0' }}>
-              Die Seite konnte nicht geladen werden
+              Something went wrong
             </h1>
-            <p style={{ color: '#6b7280', margin: '0 0 16px 0' }}>
-              Bitte laden Sie die Seite neu.
+            <p style={{ color: '#6b7280', margin: '0 0 4px 0' }}>
+              Please reload the page to try again.
+            </p>
+            <p lang="de" style={{ color: '#9ca3af', margin: '0 0 16px 0', fontSize: '14px' }}>
+              Bitte lade die Seite neu.
             </p>
             <button
               onClick={() => window.location.reload()}
               style={{
                 padding: '10px 20px',
-                borderRadius: '8px',
+                borderRadius: '10px',
                 border: 'none',
-                backgroundColor: '#3b82f6',
+                backgroundColor: '#a63d5c',
                 color: '#ffffff',
                 cursor: 'pointer',
                 fontSize: '14px',
+                fontWeight: 600,
               }}
             >
-              Neu laden
+              Reload / Neu laden
             </button>
           </div>
         </div>

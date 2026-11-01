@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const cors = require('cors');
 const sqlite3 = require('better-sqlite3');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
@@ -12,6 +13,7 @@ const PORT = process.env.PORT || 3011;
 // Database setup
 const db = new sqlite3(path.join(__dirname, 'database.db'));
 db.pragma('foreign_keys = ON');
+app.use(cors());
 app.use(express.json());
 
 // Initialize database
@@ -196,30 +198,55 @@ app.get('/api/retailers/:slug', (req, res) => {
 
 // Product routes
 app.get('/api/products', (req, res) => {
-  const { brand, category, q } = req.query;
-  let query = db.prepare("SELECT p.*, pc.slug as category_slug FROM Products p LEFT JOIN ProductCategories pc ON p.categoryId = pc.id WHERE 1=1");
-  const params = [];
-  if (brand) { query = query.append(" AND p.brandId = ?"); params.push(brand); }
-  if (category) { query = query.append(" AND p.categoryId = ?"); params.push(category); }
-  if (q) { query = query.append(" AND (p.name LIKE ? OR p.slug LIKE ?)"); params.push('%' + q + '%', '%' + q + '%'); }
-  const products = query.all(params);
-  res.json({ products, count: products.length });
+  try {
+    const { brand, category, q } = req.query;
+    let sql = `SELECT p.*, b.name AS brandName, pc.slug AS category_slug, pc.name AS categoryName
+               FROM Products p
+               LEFT JOIN Brands b ON p.brandId = b.id
+               LEFT JOIN ProductCategories pc ON p.categoryId = pc.id
+               WHERE 1=1`;
+    const params = [];
+    if (brand) { sql += " AND p.brandId = ?"; params.push(brand); }
+    if (category) { sql += " AND (p.categoryId = ? OR pc.slug = ?)"; params.push(category, category); }
+    if (q) { sql += " AND (p.name LIKE ? OR p.slug LIKE ? OR p.ean LIKE ?)"; params.push('%' + q + '%', '%' + q + '%', '%' + q + '%'); }
+    sql += " ORDER BY p.name ASC";
+    const products = db.prepare(sql).all(...params);
+    res.json({ products, count: products.length });
+  } catch (err) {
+    console.error('Products error:', err);
+    res.status(500).json({ error: 'Failed to load products' });
+  }
 });
 
 app.get('/api/products/:id', (req, res) => {
-  const product = db.prepare("SELECT * FROM Products WHERE id = ?").get(req.params.id);
+  const product = db.prepare(`SELECT p.*, b.name AS brandName, pc.slug AS category_slug, pc.name AS categoryName
+                              FROM Products p
+                              LEFT JOIN Brands b ON p.brandId = b.id
+                              LEFT JOIN ProductCategories pc ON p.categoryId = pc.id
+                              WHERE p.id = ?`).get(req.params.id);
   if (!product) return res.status(404).json({ error: 'Product not found' });
   res.json(product);
 });
 
-// Search
+// Search by product name, brand, EAN or model number
 app.post('/api/search', (req, res) => {
   try {
-    const { query: searchQuery, brand, category } = req.body;
-    if (!searchQuery) return res.status(400).json({ error: 'Search query required' });
-    const productQuery = db.prepare("SELECT p.*, pc.slug as category_slug FROM Products p LEFT JOIN ProductCategories pc ON p.categoryId = pc.id WHERE p.name LIKE ? OR p.slug LIKE ? OR p.brandId = ? OR p.modelNumber LIKE ?").all('%' + searchQuery + '%', '%' + searchQuery + '%', brand, '%' + searchQuery + '%');
-    res.json({ query: searchQuery, results: productQuery, count: productQuery.length });
-  } catch (err) { res.status(500).json({ error: 'Search failed' }); }
+    const { query: searchQuery } = req.body;
+    const term = typeof searchQuery === 'string' ? searchQuery.trim() : '';
+    if (!term) return res.status(400).json({ error: 'Search query required' });
+    const like = '%' + term + '%';
+    const productQuery = db.prepare(`SELECT p.*, b.name AS brandName, pc.slug AS category_slug, pc.name AS categoryName
+                                     FROM Products p
+                                     LEFT JOIN Brands b ON p.brandId = b.id
+                                     LEFT JOIN ProductCategories pc ON p.categoryId = pc.id
+                                     WHERE p.name LIKE ? OR p.slug LIKE ? OR b.name LIKE ?
+                                        OR p.ean LIKE ? OR p.modelNumber LIKE ?
+                                     ORDER BY p.name ASC`).all(like, like, like, like, like);
+    res.json({ query: term, results: productQuery, count: productQuery.length });
+  } catch (err) {
+    console.error('Search error:', err);
+    res.status(500).json({ error: 'Search failed' });
+  }
 });
 
 // Product matching - find retailer offers with confidence scoring
@@ -253,7 +280,8 @@ app.get('/api/products/:productId/offers', (req, res) => {
         shipping: shipping[0] || null,
         totalPurchaseCost: rp.price + (shipping[0] ? shipping[0].price : 0),
         lastPriceObservation: priceObservations[0] || null,
-        verificationStatus: rp.priceStatus,
+        verificationStatus: priceObservations[0] ? priceObservations[0].priceStatus : rp.priceStatus,
+        priceStatus: priceObservations[0] ? priceObservations[0].priceStatus : rp.priceStatus,
         url: rp.url,
         availability: rp.availability
       });
