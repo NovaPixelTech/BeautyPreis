@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FALLBACK_CATALOGUE } from './fallbackCatalogue';
+import bundledOffers from './offers.json';
 
 /* ------------------------------------------------------------------
    Configuration
@@ -1364,7 +1365,11 @@ function ProductPage({ id, t, lang, retailers, onNavigate }) {
       })
       .catch(() => {
         if (!cancelled) {
-          setData({ product: fallbackProduct, offers: [], count: 0 });
+          const productId = id;
+          const productOffers = Array.isArray(bundledOffers?.offers)
+            ? bundledOffers.offers.filter((o) => o.productId === productId || (o.retailerProduct && o.retailerProduct.productId === productId))
+            : [];
+          setData({ product: fallbackProduct, offers: productOffers, count: productOffers.length });
           setStatus('ready');
         }
       });
