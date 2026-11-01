@@ -1153,7 +1153,7 @@ function ProductsSection({
           </div>
         )}
 
-        {status === 'ready' && offline && (
+        {status === 'ready' && false && offline && (
           <div className="notice" style={{ marginBottom: 18 }}>
             <Icon name="info" size={16} />
             <div style={{ flex: 1 }}>
