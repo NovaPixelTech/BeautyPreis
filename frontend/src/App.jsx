@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FALLBACK_CATALOGUE } from './fallbackCatalogue';
-import bundledCatalogue from './catalogue.json';
 
 /* ------------------------------------------------------------------
    Configuration
@@ -1783,19 +1782,18 @@ export default function App() {
         offline: false,
       });
     } catch (error) {
-      // Static hosting (GitHub Pages) or mobile/network failure: fall back
-      // to the bundled live catalogue so prices and products remain visible.
-      const bundledProducts = Array.isArray(bundledCatalogue?.products)
-        ? bundledCatalogue.products.filter(isCompleteProduct)
-        : FALLBACK_CATALOGUE.products;
-      const bundledRetailers = Array.isArray(bundledCatalogue?.retailers)
-        ? bundledCatalogue.retailers
-        : FALLBACK_CATALOGUE.retailers;
+      // If the API is unreachable, fall back to the bundled catalogue.
+      const products = Array.isArray(FALLBACK_CATALOGUE.products)
+        ? FALLBACK_CATALOGUE.products.filter(isCompleteProduct)
+        : [];
+      const retailers = Array.isArray(FALLBACK_CATALOGUE.retailers)
+        ? FALLBACK_CATALOGUE.retailers
+        : [];
       setCatalogue({
         status: 'ready',
-        products: bundledProducts,
-        retailers: bundledRetailers,
-        offline: false,
+        products,
+        retailers,
+        offline: true,
       });
     }
   }, []);
